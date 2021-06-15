@@ -1,6 +1,6 @@
 FROM craftcms/cli:8.0
 COPY ./app /app
 WORKDIR /app
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+COPY --from=composer:latest /usr/bin/composer /usr/local/bin/composer
 RUN composer install
 CMD ["./craft", "queue/listen"]
