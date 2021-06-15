@@ -1,11 +1,10 @@
-#!/usr/bin/env php
 <?php
 /**
- * Craft console bootstrap file
+ * Craft web bootstrap file
  */
 
 // Define path constants
-define('CRAFT_BASE_PATH', __DIR__);
+define('CRAFT_BASE_PATH', dirname(__DIR__));
 define('CRAFT_VENDOR_PATH', CRAFT_BASE_PATH . '/vendor');
 
 // Load Composer's autoloader
@@ -22,7 +21,6 @@ define('CRAFT_ENVIRONMENT', getenv('ENVIRONMENT') ?: 'production');
 // ...
 
 // Load and run Craft
-/** @var craft\console\Application $app */
-$app = require CRAFT_VENDOR_PATH . '/craftcms/cms/bootstrap/console.php';
-$exitCode = $app->run();
-exit($exitCode);
+/** @var craft\web\Application $app */
+$app = require CRAFT_VENDOR_PATH . '/craftcms/cms/bootstrap/web.php';
+$app->run();
