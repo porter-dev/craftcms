@@ -4,5 +4,7 @@ WORKDIR /app
 USER root
 COPY --from=composer:latest /usr/bin/composer /usr/local/bin/composer
 RUN chmod -R 777 composer.* config storage web/cpresources
-RUN composer install
+RUN composer install --no-interaction
+RUN php craft migrate/all
+RUN php craft project-config/apply
 CMD ["./craft", "queue/listen"]
