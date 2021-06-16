@@ -3,7 +3,7 @@ services:
   web:
     image: craftcms/nginx:8.0-dev
     volumes:
-      - .:/app
+      - ./app:/app
     ports:
       - 8080:8080
     env_file: .env
@@ -12,7 +12,7 @@ services:
   console:
     image: craftcms/cli:8.0-dev
     volumes:
-      - .:/app
+      - ./app:/app
     env_file: .env
     command: ["./craft", "queue/listen"]
   mysql:
