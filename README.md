@@ -27,7 +27,7 @@ DATABASE_PASSWORD=
 3. Fork this repository.
 4. We will launch two separate services: `web` and `console`. From the [Launch tab](https://dashboard.getporter.dev/launch), navigate to **Web Service > Deploy from Git Repository**. Select the forked repository and `web.Dockerfile` from the root directory. Click **Continue**.
 5. Configure the port to `8080`, load in the environment variables from the Environment Group you created in the previous section, then hit deploy.
-6. Next we will deploy a `console` service. Navigate to **Worker > Deploy from Git Repository** from the [launch tab](https://dashboard.getporter.dev/launch). Load in the same set of environment variables, then hit deploy.
+6. Next we will deploy a `console` service. Navigate to **Worker > Deploy from Git Repository** from the [launch tab](https://dashboard.getporter.dev/launch). Select the forked repository and `console.Dockerfile` from the root directory. Load in the same set of environment variables as those used for `web` service, then hit deploy.
 7. Porter will now automatically handle CI/CD for your Craft CMS deployments whenever you push to the forked repository.
 
 # Development & Propagating Changes
