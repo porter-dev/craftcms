@@ -1,0 +1,23 @@
+version: v2
+name: craftcms
+build:
+  method: docker
+  context: .
+  dockerfile: ./Dockerfile
+services:
+  - name: web
+    type: web
+    run: apache2-foreground
+    port: 8080
+    cpuCores: 0.5
+    ramMegabytes: 512
+    healthCheck:
+      enabled: true
+      httpPath: /healthz
+  - name: worker
+    type: worker
+    run: php craft queue/listen --verbose
+    cpuCores: 0.25
+    ramMegabytes: 256
+predeploy:
+  run: bin/predeploy

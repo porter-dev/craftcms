@@ -1,0 +1,23 @@
+{
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "require": {
+    "craftcms/cms": "^5.11.5",
+    "vlucas/phpdotenv": "^5.6"
+  },
+  "require-dev": {
+    "craftcms/generator": "^2.0.0",
+    "yiisoft/yii2-shell": "^2.0.3"
+  },
+  "config": {
+    "allow-plugins": {
+      "craftcms/plugin-installer": true,
+      "yiisoft/yii2-composer": true
+    },
+    "platform": {
+      "php": "8.4"
+    },
+    "sort-packages": true,
+    "optimize-autoloader": true
+  }
+}

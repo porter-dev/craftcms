@@ -1,34 +1,28 @@
-version: "3.6"
 services:
   web:
-    image: craftcms/nginx:8.0-dev
-    volumes:
-      - ./app:/app
+    build: .
     ports:
-      - 8080:8080
+      - "8080:8080"
     env_file: .env
-    depends_on: 
-        - mysql
-  console:
-    image: craftcms/cli:8.0-dev
     volumes:
-      - ./app:/app
-    env_file: .env
-    command: ["./craft", "queue/listen"]
-  mysql:
-    image: mysql:8.0
-    ports:
-      - 3306:3306
+      - ./config/project:/app/config/project
+      - ./templates:/app/templates
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:18-alpine
     environment:
-      MYSQL_ROOT_PASSWORD: SuperPassword123456!
-      MYSQL_DATABASE: dev_craftcms
-      MYSQL_USER: craftcms
-      MYSQL_PASSWORD: SecretPassword
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
     volumes:
-      - db_data:/var/lib/mysql
-  redis:
-    image: redis:5-alpine
-    ports:
-      - 6379:6379
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      retries: 15
+
 volumes:
-  db_data:
+  postgres_data:
