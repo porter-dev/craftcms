@@ -1,0 +1,18 @@
+#!/bin/sh
+set -eu
+
+if php craft install/check; then
+  exec php craft up --interactive=0
+fi
+
+if [ -n "${CRAFT_ADMIN_EMAIL:-}" ] && [ -n "${CRAFT_ADMIN_PASSWORD:-}" ]; then
+  exec php craft install --interactive=0 \
+    --email="$CRAFT_ADMIN_EMAIL" \
+    --username="${CRAFT_ADMIN_USERNAME:-admin}" \
+    --password="$CRAFT_ADMIN_PASSWORD" \
+    --site-name="${CRAFT_SITE_NAME:-Craft CMS}" \
+    --site-url='$PRIMARY_SITE_URL' \
+    --language="${CRAFT_SITE_LANGUAGE:-en-US}"
+fi
+
+echo "Craft is not installed yet. Set CRAFT_ADMIN_EMAIL and CRAFT_ADMIN_PASSWORD and redeploy, or run: php craft install" >&2

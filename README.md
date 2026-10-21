@@ -1,47 +1,100 @@
-# Deploy Craft CMS with Porter
-This is a quickstart repository you can fork to develop and deploy Craft CMS on Kubernetes on AWS/GCP/DO with Porter.
+# Craft CMS on Porter
 
-# Quick Deploy
+A minimal Craft CMS 5 project, packaged as a single Docker image with a web service, a queue worker and a predeploy step for migrations.
 
-## Deploying PostgreSQL Database (OPTIONAL) 
-This quickstart guide connects Craft CMS to a PostgreSQL database deployed on Porter. You can connect Craft CMS instances deployed on Porter to any external databases, but Porter lets you deploy a PostgreSQL instance in just one click. If you want to connect to a database that's deployed via Porter, please follow [this guide](https://docs.getporter.dev/docs/postgresdb). To seed the deployed database with existing data, you can use Porter's [Remote Execution feature](https://docs.getporter.dev/docs/cli-documentation#remote-execution) to run `psql` commands inside the deployed database.
+## What's inside
 
-## Create Environment Group
-To allow users to easily reuse the same set of environment variables across deployments, Porter supports **Environment Groups**. In this guide, we will be deploying two services for Craft CMS that use the same set of environment variables - we recommend you to store these as an environment group for convenience.
-1. Navigate to the [Environment Group tab](https://dashboard.getporter.dev/env-groups). Create a new environment group by loading in from a file or manually inputting the variables.
-2. Ensure that all environment variables outlined below are included. Your `DATABASE` environment variables must match the config of the database you are trying to connect to. If you're trying to connect to a database on Porter, [see this guide for more details.](https://docs.getporter.dev/docs/postgresdb#connecting-to-the-database) 
-```
-NODE_ENV=production
-APP_ID=
-SECURITY_KEY=
-DATABASE_HOST=
-DATABASE_PORT=5432
-DATABASE_NAME=
-DATABASE_USERNAME=
-DATABASE_PASSWORD=
-```
+- Craft CMS 5.11 on PHP 8.4 with Apache (`php:8.4-apache-trixie`), running as `www-data`
+- PostgreSQL as the database
+- Endpoints:
 
-## Deploying Craft CMS
-1. Create an account on [Porter](https://dashboard.getporter.dev).
-2. [One-click provision a Kubernetes cluster](https://docs.getporter.dev/docs/getting-started-with-porter-on-aws) in a cloud provider of your choice, or [connect an existing cluster](https://docs.getporter.dev/docs/cli-documentation#connecting-to-an-existing-cluster) if you already have a cluster.
-3. Fork this repository.
-4. We will launch two separate services: `web` and `console`. From the [Launch tab](https://dashboard.getporter.dev/launch), navigate to **Web Service > Deploy from Git Repository**. Select the forked repository and `web.Dockerfile` from the root directory. Click **Continue**.
-5. Configure the port to `8080`, load in the environment variables from the Environment Group you created in the previous section, then hit deploy.
-6. Next we will deploy a `console` service. Navigate to **Worker > Deploy from Git Repository** from the [launch tab](https://dashboard.getporter.dev/launch). Select the forked repository and `console.Dockerfile` from the root directory. Load in the same set of environment variables as those used for `web` service, then hit deploy.
-7. Porter will now automatically handle CI/CD for your Craft CMS deployments whenever you push to the forked repository.
+| Path | Purpose | Needs the database |
+| --- | --- | --- |
+| `/` | Homepage confirming Craft is running on Porter | Yes |
+| `/admin` | Craft control panel | Yes |
+| `/healthz` | Liveness check, served by Apache | No |
+| `/actions/app/health-check` | Craft's own health check | Yes, and Craft must be installed |
 
-# Development & Propagating Changes
-To develop, clone this repository to your local environment and run `docker-compose -f docker-compose.yml up --build` from the root directory.
-To propagate your changes to the production environment, you need to run `php craft migrate/all` and `php craft project-config/apply` in one of your deployed services. You can do this via Porter's [Remote Execution feature](https://docs.getporter.dev/docs/cli-documentation#remote-execution). This feature works in a similar way as `ssh` and allows you to run commands inside a deployment.
-After you've successfully deployed your changes, you can run these commands to propagate your changes.
-```
-porter run [DEPLOYMENT_NAME] -- php craft migrate/all
-porter run [DEPLOYMENT_NAME] -- php craft project-config/apply
-```
-Alternatively, if you want to open up an interactive shell instance in the deployment to run other commands, run:
-```
-porter run [DEPLOYMENT_NAME] -- sh
+## Run locally
+
+With Docker Compose (Craft plus Postgres):
+
+```sh
+cp .env.example .env
+echo "CRAFT_SECURITY_KEY=$(openssl rand -hex 32)" >> .env
+docker compose up --build -d
+docker compose exec web php craft install
 ```
 
-# Questions?
-Join the [Porter Discord community](https://discord.gg/FaaFjb6DXA) if you have any questions. For contributions/suggestions to docs, please open an issue in our [open source repository](https://github.com/porter-dev/porter).
+Open http://localhost:8080 for the site and http://localhost:8080/admin for the control panel. Changes you make in the control panel are written to `config/project/`. Commit that folder so `php craft up` applies them on deploy.
+
+With PHP 8.4 and Composer installed natively, point the `DB_*` variables in `.env` at a local Postgres, then:
+
+```sh
+composer install
+php craft install
+php craft serve 0.0.0.0:8080
+```
+
+To build and run only the image:
+
+```sh
+docker build -t craftcms . && docker run -p 8080:8080 craftcms
+```
+
+`/healthz` responds right away. The rest of the site needs the environment variables below and a database.
+
+## Deploy on Porter
+
+Craft needs a database. Before deploying, create a Postgres datastore in the Porter dashboard under Add-ons. Porter creates an environment group with the same name as the datastore. Attach that group to the app. `config/db.php` reads its `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` and `DB_PASS` variables directly, so you don't need to map any names.
+
+Then create another environment group (or add app environment variables) with `CRAFT_APP_ID`, `CRAFT_SECURITY_KEY` and `PRIMARY_SITE_URL`. For the first deploy, also set `CRAFT_ADMIN_EMAIL` and `CRAFT_ADMIN_PASSWORD`. The predeploy step then installs Craft. You can remove both once the install has run.
+
+### From the dashboard
+
+Fork this repo. In https://dashboard.porter.run, create a new app from your GitHub repo. Porter reads `porter.yaml`, builds the Dockerfile and opens a PR that adds a GitHub Actions workflow. Merge it, and every push to `main` redeploys. See https://docs.porter.run/applications/deploy/deploy-from-github-repo
+
+### From the CLI
+
+Install the CLI (https://docs.porter.run/cli/installation), then:
+
+```sh
+porter auth login
+porter apply -f porter.yaml
+```
+
+## Configuration
+
+`porter.yaml` defines:
+
+- `build`: builds `./Dockerfile` from the repo root.
+- `web`: Apache and PHP on port 8080 with 0.5 CPU and 512 MB RAM. Its health check is `/healthz`. The server listens on `$PORT` when that is set, and on 8080 otherwise.
+- `worker`: runs `php craft queue/listen` from the same image with 0.25 CPU and 256 MB RAM. Because of this, the image turns off Craft's web based queue runner.
+- `predeploy`: runs `bin/predeploy` before each release. If Craft is installed, it runs `php craft up`, which applies migrations and project config. If Craft isn't installed yet and admin credentials are set, it runs `php craft install`. Otherwise it logs a reminder and the deploy continues.
+
+Environment variables:
+
+| Name | Required | Description |
+| --- | --- | --- |
+| `CRAFT_APP_ID` | Yes | Unique ID for sessions, caches and locks. Generate one with `echo "CraftCMS--$(uuidgen)"` |
+| `CRAFT_SECURITY_KEY` | Yes | Key for hashing and encryption. Generate one with `openssl rand -hex 32` and never change it after install |
+| `PRIMARY_SITE_URL` | Yes | Public URL of the site, for example `https://craft.example.com` |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS` | Yes | Postgres connection details. These come from the Porter datastore environment group |
+| `CRAFT_DB_SERVER`, `CRAFT_DB_DATABASE`, `CRAFT_DB_USER`, `CRAFT_DB_PASSWORD`, `CRAFT_DB_PORT` | No | Craft's own names for the same settings. If set, they take precedence over the `DB_*` values |
+| `CRAFT_ADMIN_EMAIL`, `CRAFT_ADMIN_PASSWORD` | First deploy | Admin account the predeploy step creates when Craft isn't installed yet |
+| `CRAFT_ADMIN_USERNAME`, `CRAFT_SITE_NAME`, `CRAFT_SITE_LANGUAGE` | No | Install options. The defaults are `admin`, `Craft CMS` and `en-US` |
+| `CRAFT_LICENSE_KEY` | No | License key for Craft Team or Pro |
+| `CRAFT_ENVIRONMENT` | No | Defaults to `production` in the image |
+
+The container filesystem is ephemeral, so uploaded assets disappear on redeploy. As a next step, add an S3 asset filesystem with the official Amazon S3 plugin (`craftcms/aws-s3`) before you store real media.
+
+Full reference: https://docs.porter.run/applications/configuration-as-code/reference
+
+## Learn more
+
+- https://docs.porter.run/getting-started/quickstart
+- https://docs.porter.run/applications/configuration-as-code/overview
+- https://docs.porter.run/applications/configure/environment-groups
+- https://docs.porter.run/addons/datastores
+- https://docs.porter.run/preview-environments/overview
+- https://github.com/porter-dev/starters
